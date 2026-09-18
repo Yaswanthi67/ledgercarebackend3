@@ -1,0 +1,31 @@
+{
+  "name": "ledgercare-backend",
+  "version": "1.0.0",
+  "description": "Backend bridge for LedgerCare: UPI Payments, IPFS Evidence, and Blockchain Relaying",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node test/integration.test.js"
+  },
+  "keywords": [
+    "ledgercare",
+    "blockchain",
+    "charity",
+    "upi",
+    "razorpay",
+    "ipfs"
+  ],
+  "author": "LedgerCare Team",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.7.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.2",
+    "express": "^4.21.0",
+    "multer": "^1.4.5-lts.1",
+    "razorpay": "^2.9.4"
+  }
+}
