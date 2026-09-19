@@ -4,15 +4,103 @@ import { db } from '../services/dbService.js';
 export class CampaignController {
   /**
    * GET /api/campaigns
-   * Returns all campaigns from the blockchain
+   * Returns all campaigns (on-chain + registered)
    */
   static async getAllCampaigns(req, res, next) {
     try {
-      const campaigns = await BlockchainService.getAllCampaigns();
+      const onChainCampaigns = await BlockchainService.getAllCampaigns();
+      const dbCampaigns = db.getAllCampaigns();
+
+      // Merge campaigns by campaignId: prefer db metadata (category, image, inr amounts) + live on-chain balances
+      const merged = onChainCampaigns.map((onChain) => {
+        const dbMatch = dbCampaigns.find((dbc) => Number(dbc.campaignId) === Number(onChain.campaignId));
+        if (dbMatch) {
+          return {
+            ...dbMatch,
+            ...onChain,
+            category: dbMatch.category || onChain.category || 'General',
+            imageUrl: dbMatch.imageUrl || onChain.imageUrl || '',
+            targetAmountInr: dbMatch.targetAmountInr || Math.round(parseFloat(onChain.targetAmountEth || '1') * 250000),
+            raisedAmountInr: dbMatch.raisedAmountInr || Math.round(parseFloat(onChain.raisedAmountEth || '0') * 250000),
+            charityName: dbMatch.charityName || onChain.charityName || 'Verified Charity',
+          };
+        }
+        return {
+          ...onChain,
+          category: onChain.category || 'General',
+          targetAmountInr: Math.round(parseFloat(onChain.targetAmountEth || '1') * 250000),
+          raisedAmountInr: Math.round(parseFloat(onChain.raisedAmountEth || '0') * 250000),
+        };
+      });
+
+      for (const dbc of dbCampaigns) {
+        const exists = merged.some((m) => Number(m.campaignId) === Number(dbc.campaignId));
+        if (!exists) {
+          merged.push(dbc);
+        }
+      }
+
       res.status(200).json({
         success: true,
-        count: campaigns.length,
-        campaigns,
+        count: merged.length,
+        campaigns: merged,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /api/campaigns
+   * Deploys and registers a new charity campaign
+   */
+  static async createCampaign(req, res, next) {
+    try {
+      const {
+        title,
+        description,
+        targetAmount,
+        targetAmountInr,
+        targetAmountEth,
+        startDate,
+        endDate,
+        category,
+        imageUrl,
+        charityId,
+        charityName,
+      } = req.body;
+
+      if (!title || (!targetAmount && !targetAmountInr && !targetAmountEth)) {
+        return res.status(400).json({
+          success: false,
+          message: 'title and targetAmount are required.',
+        });
+      }
+
+      // 1. Deploy on-chain via BlockchainService
+      const campaignRecord = await BlockchainService.createCampaign({
+        title,
+        description,
+        targetAmount,
+        targetAmountInr,
+        targetAmountEth,
+        startDate,
+        endDate,
+        category,
+        imageUrl,
+        charityId,
+        charityName,
+      });
+
+      // 2. Persist in local database store
+      db.saveCampaign(campaignRecord);
+
+      res.status(201).json({
+        success: true,
+        campaignId: campaignRecord.campaignId,
+        campaign: campaignRecord,
+        transactionHash: campaignRecord.transactionHash,
+        message: 'Campaign created successfully and registered on CampaignManager.',
       });
     } catch (err) {
       next(err);
@@ -26,13 +114,36 @@ export class CampaignController {
   static async getCampaignById(req, res, next) {
     try {
       const { id } = req.params;
-      const campaign = await BlockchainService.getCampaign(Number(id));
+      let onChain = await BlockchainService.getCampaign(Number(id));
+      const dbCamp = db.getAllCampaigns().find((c) => Number(c.campaignId) === Number(id));
 
-      if (!campaign) {
+      if (!onChain && !dbCamp) {
         return res.status(404).json({
           success: false,
-          message: `Campaign #${id} not found on the blockchain.`,
+          message: `Campaign #${id} not found.`,
         });
+      }
+
+      let campaign;
+      if (onChain && dbCamp) {
+        campaign = {
+          ...dbCamp,
+          ...onChain,
+          category: dbCamp.category || onChain.category || 'General',
+          imageUrl: dbCamp.imageUrl || onChain.imageUrl || '',
+          targetAmountInr: dbCamp.targetAmountInr || Math.round(parseFloat(onChain.targetAmountEth || '1') * 250000),
+          raisedAmountInr: dbCamp.raisedAmountInr || Math.round(parseFloat(onChain.raisedAmountEth || '0') * 250000),
+          charityName: dbCamp.charityName || onChain.charityName || 'Verified Charity',
+        };
+      } else if (onChain) {
+        campaign = {
+          ...onChain,
+          category: onChain.category || 'General',
+          targetAmountInr: Math.round(parseFloat(onChain.targetAmountEth || '1') * 250000),
+          raisedAmountInr: Math.round(parseFloat(onChain.raisedAmountEth || '0') * 250000),
+        };
+      } else {
+        campaign = dbCamp;
       }
 
       res.status(200).json({

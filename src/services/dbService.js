@@ -133,6 +133,84 @@ class DatabaseService {
     }
     return list.sort((a, b) => b.createdAt - a.createdAt);
   }
+
+  // ==========================================
+  // CAMPAIGNS PERSISTENCE
+  // ==========================================
+  getCampaignsFile() {
+    return path.join(DATA_DIR, 'campaigns.json');
+  }
+
+  getAllCampaigns() {
+    try {
+      const file = this.getCampaignsFile();
+      if (fs.existsSync(file)) {
+        return JSON.parse(fs.readFileSync(file, 'utf8'));
+      }
+    } catch (e) {
+      console.warn('Failed reading campaigns.json:', e);
+    }
+    return [];
+  }
+
+  saveCampaign(campaign) {
+    try {
+      const file = this.getCampaignsFile();
+      const list = this.getAllCampaigns();
+      const idx = list.findIndex((c) => Number(c.campaignId) === Number(campaign.campaignId));
+      if (idx >= 0) {
+        list[idx] = { ...list[idx], ...campaign };
+      } else {
+        list.push(campaign);
+      }
+      fs.writeFileSync(file, JSON.stringify(list, null, 2), 'utf8');
+      return campaign;
+    } catch (e) {
+      console.error('Failed saving campaign:', e);
+      return campaign;
+    }
+  }
+
+  // ==========================================
+  // CHARITIES PERSISTENCE
+  // ==========================================
+  getCharitiesFile() {
+    return path.join(DATA_DIR, 'charities.json');
+  }
+
+  getAllCharities() {
+    try {
+      const file = this.getCharitiesFile();
+      if (fs.existsSync(file)) {
+        return JSON.parse(fs.readFileSync(file, 'utf8'));
+      }
+    } catch (e) {
+      console.warn('Failed reading charities.json:', e);
+    }
+    return [];
+  }
+
+  saveCharity(charity) {
+    try {
+      const file = this.getCharitiesFile();
+      const list = this.getAllCharities();
+      const idx = list.findIndex(
+        (c) =>
+          Number(c.charityId) === Number(charity.charityId) ||
+          c.registrationNumber === charity.registrationNumber
+      );
+      if (idx >= 0) {
+        list[idx] = { ...list[idx], ...charity };
+      } else {
+        list.push(charity);
+      }
+      fs.writeFileSync(file, JSON.stringify(list, null, 2), 'utf8');
+      return charity;
+    } catch (e) {
+      console.error('Failed saving charity:', e);
+      return charity;
+    }
+  }
 }
 
 export const db = new DatabaseService();

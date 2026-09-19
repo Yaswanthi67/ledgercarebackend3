@@ -15,7 +15,8 @@ export class PaymentController {
    */
   static async createOrder(req, res, next) {
     try {
-      const { campaignId, amount, donorName, donorEmail, donorPhone } = req.body;
+      const { campaignId, donorName, donorEmail, donorPhone } = req.body;
+      const amount = req.body.amount || req.body.amountInr;
 
       // 1. Input Validation
       const validation = validateCreateOrderInput({

@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import paymentRoutes from './routes/paymentRoutes.js';
 import campaignRoutes from './routes/campaignRoutes.js';
 import donationRoutes from './routes/donationRoutes.js';
@@ -12,6 +15,16 @@ import { hasIpfsCredentials } from './config/ipfs.js';
 import { PAYMENT_KEY_ID } from './config/payment.js';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Locate frontend dist directory
+const frontendDistPath = path.resolve(__dirname, '../../LedgerCareFrontend/dist');
+const localPublicPath = path.resolve(__dirname, '../public');
+const staticPath = fs.existsSync(frontendDistPath)
+  ? frontendDistPath
+  : (fs.existsSync(localPublicPath) ? localPublicPath : null);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -31,8 +44,17 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Root landing page (browser and JSON support)
-app.get('/', (req, res) => {
+// Mount static files if frontend dist exists
+if (staticPath) {
+  app.use(express.static(staticPath));
+}
+
+// Fallback landing page if frontend is not yet built
+app.get('/', (req, res, next) => {
+  if (staticPath && fs.existsSync(path.join(staticPath, 'index.html'))) {
+    return res.sendFile(path.join(staticPath, 'index.html'));
+  }
+
   if (req.accepts('html')) {
     return res.status(200).send(`
       <!DOCTYPE html>
@@ -160,13 +182,20 @@ app.use('/api/donations', donationRoutes);
 app.use('/api/evidence', evidenceRoutes);
 app.use('/api/charities', charityRoutes);
 
-// 404 handler for undefined routes
+// 404 handler for undefined API routes
 app.use('/api/*', (req, res) => {
   res.status(404).json({
     success: false,
     message: `Endpoint ${req.method} ${req.baseUrl} not found.`,
   });
 });
+
+// SPA client-side fallback for all frontend web routes (e.g. /campaigns, /donor, /verify)
+if (staticPath && fs.existsSync(path.join(staticPath, 'index.html'))) {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(staticPath, 'index.html'));
+  });
+}
 
 // Centralized error handling middleware
 app.use(errorHandler);
