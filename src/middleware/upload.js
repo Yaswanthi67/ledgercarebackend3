@@ -4,7 +4,7 @@ import multer from 'multer';
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
-  // Allowed evidence file types: PDF, images, text/documents
+  // Allowed evidence file types: PDF, images, text, and documents
   const allowedMimeTypes = [
     'application/pdf',
     'image/jpeg',
@@ -12,14 +12,22 @@ const fileFilter = (req, file, cb) => {
     'image/webp',
     'image/gif',
     'text/plain',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/octet-stream',
   ];
 
-  if (allowedMimeTypes.includes(file.mimetype)) {
+  const allowedExtensions = /\.(pdf|jpe?g|png|webp|gif|txt|doc|docx)$/i;
+
+  if (
+    allowedMimeTypes.includes(file.mimetype) ||
+    allowedExtensions.test(file.originalname)
+  ) {
     cb(null, true);
   } else {
     cb(
       new Error(
-        `Unsupported file type: ${file.mimetype}. Allowed types are PDF, JPG, PNG, WEBP.`
+        `Unsupported file type: ${file.mimetype}. Allowed types are PDF, JPG, PNG, WEBP, DOC.`
       ),
       false
     );

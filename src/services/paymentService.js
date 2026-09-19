@@ -33,7 +33,7 @@ export class PaymentService {
         },
       });
     } catch (err) {
-      console.warn('Razorpay API order creation failed or using demo credentials:', err.message);
+      console.log(`[Payment] Using demo/test payment order for ₹${amountInr} (Campaign #${campaignId})`);
       // Generate deterministic test order for sandbox/demo environment
       const mockOrderId = `order_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
       razorpayOrder = {

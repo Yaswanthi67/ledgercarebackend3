@@ -332,15 +332,21 @@ export class BlockchainService {
 
       // 2. Register if signer is registering itself or directly
       if (targetWallet.toLowerCase() === signer.address.toLowerCase()) {
-        const nonce2 = await provider.getTransactionCount(signer.address, 'latest');
-        const tx2 = await crWithSigner.registerCharity(organizationName, registrationNumber, email, { nonce: nonce2 });
-        const rc = await tx2.wait();
-        txHash = rc.hash;
         const crReadOnly = getReadOnlyContract('CharityRegistry');
-        onChainId = Number(await crReadOnly.getCharityIdByWallet(signer.address));
+        const existingId = Number(await crReadOnly.getCharityIdByWallet(signer.address));
+        if (existingId > 0) {
+          onChainId = existingId;
+          console.log(`[CharityRegistry] Whitelisted new charity credential hash (${credHash.substring(0, 10)}...) for on-chain charity #${existingId}`);
+        } else {
+          const nonce2 = await provider.getTransactionCount(signer.address, 'latest');
+          const tx2 = await crWithSigner.registerCharity(organizationName, registrationNumber, email, { nonce: nonce2 });
+          const rc = await tx2.wait();
+          txHash = rc.hash;
+          onChainId = Number(await crReadOnly.getCharityIdByWallet(signer.address));
+        }
       }
     } catch (e) {
-      console.warn('CharityRegistry blockchain operation note:', e.message);
+      console.warn('CharityRegistry blockchain note:', e.message);
     }
 
     return {
